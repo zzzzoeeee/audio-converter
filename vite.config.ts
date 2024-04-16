@@ -25,5 +25,5 @@ export default defineConfig({
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
-  base: "/audio-converter-online/",
+  base: "/audio-converter/",
 });
