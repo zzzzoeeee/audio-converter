@@ -1,0 +1,10 @@
+body {
+  color-scheme: light dark;
+  color: #fffffe;
+  background-color: #16161a;
+  font-family: "Tilt Neon", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  font-variation-settings: "XROT" 0, "YROT" 0;
+}
