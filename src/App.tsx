@@ -15,6 +15,7 @@ import pLimit from "p-limit";
 import Lottie from "react-lottie";
 import * as loadingAnimation from "./asset/loading.lottie.json";
 import Footer from "./compoments/Footer";
+import logoImage from "./asset/exchange-64.png";
 
 const limit = pLimit(5);
 type FileStatus = "ready" | "converting" | "converted" | "error";
@@ -215,7 +216,7 @@ function App() {
         <Container className="col-md-10 col-lg-6">
           <div className="d-flex justify-content-start align-items-center gap-3">
             <img
-              src="/exchange-64.png"
+              src={logoImage}
               width={36}
               height={36}
               alt="Logo"
