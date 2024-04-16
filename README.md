@@ -1,28 +1,25 @@
-# React + TypeScript + Vite
+# Audio Converter Web App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is a web app that allows users to convert audio files from one format to another using client-side JavaScript and the ffmpeg.wasm library. 
 
-Currently, two official plugins are available:
+## Usage
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1. Select an audio file using the file picker
+2. Select the desired target format from the dropdown 
+3. Click the "Convert" button to start conversion 
+4. Download converted files individually or as a zip file
 
-## Expanding the ESLint configuration
+## Supported input/output formats
+- mp3
+- wav
+- m4a
+- flac
+- ogg
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## Credits
 
-- Configure the top-level `parserOptions` property like this:
+Audio conversion icon made by [Freepik](https://www.flaticon.com/authors/freepik) from [www.flaticon.com](https://www.flaticon.com/)
 
-```js
-   parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-   },
-```
+## License
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
-# acvo
+This project is open source and available under the [MIT License](LICENSE.md).
