@@ -27,6 +27,7 @@
     "@types/react-dom": "^18.2.7",
     "@types/react-lottie": "^1.2.10",
     "@vitejs/plugin-react": "^4.0.3",
+    "lefthook": "^1.11.13",
     "typescript": "^5.0.2",
     "vite": "^4.5.2"
   }
