@@ -1,38 +1,29 @@
-import type React from "react";
-import { useState, useRef, useEffect, useCallback } from "react";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { toBlobURL, fetchFile } from "@ffmpeg/util";
+import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import JSZip from "jszip";
+import type React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	Button,
 	Col,
 	Container,
 	Form,
-	Row,
-	ProgressBar,
 	ListGroup,
+	ProgressBar,
+	Row,
 } from "react-bootstrap";
-import pLimit from "p-limit";
 import Lottie from "react-lottie";
-import * as loadingAnimation from "./asset/loading.lottie.json";
-import Footer from "./compoments/Footer";
 import logoImage from "./asset/exchange-64.png";
-
-const limit = pLimit(5);
-type FileStatus = "ready" | "converting" | "converted" | "error";
-
-interface SelectedFile {
-	data: File;
-	status: FileStatus;
-	convertedBlob?: Blob;
-	error?: string;
-}
+import * as loadingAnimation from "./asset/loading.lottie.json";
+import { FileItem } from "./compoments/FileItem";
+import type { FileItemInfo, FileStatus } from "./compoments/FileItem";
+import Footer from "./compoments/Footer";
 
 function App() {
 	const [loaded, setLoaded] = useState(false);
 	const ffmpegRef = useRef(new FFmpeg());
 	const [filesToConvert, setFilesToConvert] = useState<
-		Map<number, SelectedFile>
+		Map<number, FileItemInfo>
 	>(new Map());
 	const [conversionProgress, setConversionProgress] = useState(0);
 	const [convertStatus, setConvertStatus] = useState<
@@ -86,12 +77,19 @@ function App() {
 		status: FileStatus,
 		convertedBlob?: Blob,
 		error?: string,
+		progress?: number,
 	) => {
 		const file = filesToConvert.get(id);
 		if (!file) return;
 		setFilesToConvert(
 			new Map(
-				filesToConvert.set(id, { ...file, status, convertedBlob, error }),
+				filesToConvert.set(id, {
+					...file,
+					status,
+					convertedBlob,
+					error,
+					progress: progress ?? file.progress,
+				}),
 			),
 		);
 		const convertedCount = Array.from(filesToConvert.values()).filter(
@@ -108,48 +106,61 @@ function App() {
 		event.preventDefault();
 		event.stopPropagation();
 
-		if (!selectFormat) {
-			return;
-		}
-
 		setConvertStatus("converting");
+		for (const key of filesToConvert.keys()) {
+			updateFileStatus(key, "waiting");
+		}
 
 		const format = selectFormat;
 		const ffmpeg = ffmpegRef.current;
 		const zip = new JSZip();
-		await Promise.all(
-			Array.from(filesToConvert.keys()).map(async (key, i) => {
-				await limit(async () => {
-					try {
-						const selectedFile = filesToConvert.get(key);
-						if (!selectedFile) {
-							return;
-						}
 
-						updateFileStatus(key, "converting");
+		for (const key of filesToConvert.keys()) {
+			try {
+				const fileToConvert = filesToConvert.get(key);
+				if (!fileToConvert) {
+					return;
+				}
 
-						const file = selectedFile.data;
-						await ffmpeg.writeFile(file.name, await fetchFile(file));
-						await ffmpeg.exec(["-i", file.name, `output_${i}.${format}`]);
-						const fileData = await ffmpeg.readFile(`output_${i}.${format}`);
-						const data = new Uint8Array(fileData as ArrayBuffer);
-						const convertedBlob = new Blob([data.buffer], {
-							type: `audio/${format}`,
-						});
-						zip.file(
-							`${getFileNameWithoutExtension(file.name)}.${format}`,
-							convertedBlob,
+				updateFileStatus(key, "converting", undefined, undefined, 0);
+
+				const progressHandler = ({ progress }: { progress: number }) => {
+					if (filesToConvert.get(key)?.status === "converting") {
+						updateFileStatus(
+							key,
+							"converting",
+							undefined,
+							undefined,
+							progress * 100,
 						);
-
-						updateFileStatus(key, "converted", convertedBlob);
-					} catch (e) {
-						const errorMessage =
-							e instanceof Error && e.message ? e.message : "Unknown error";
-						updateFileStatus(key, "error", undefined, errorMessage);
 					}
-				});
-			}),
-		);
+				};
+
+				ffmpeg.on("progress", progressHandler);
+
+				try {
+					const file = fileToConvert.data;
+					await ffmpeg.writeFile(file.name, await fetchFile(file));
+					await ffmpeg.exec(["-i", file.name, `output_${key}.${format}`]);
+					const fileData = await ffmpeg.readFile(`output_${key}.${format}`);
+					const data = new Uint8Array(fileData as ArrayBuffer);
+					const convertedBlob = new Blob([data.buffer], {
+						type: `audio/${format}`,
+					});
+					zip.file(
+						`${getFileNameWithoutExtension(file.name)}.${format}`,
+						convertedBlob,
+					);
+					updateFileStatus(key, "converted", convertedBlob, undefined, 100);
+				} finally {
+					ffmpeg.off("progress", progressHandler);
+				}
+			} catch (e) {
+				const errorMessage =
+					e instanceof Error && e.message ? e.message : "Unknown error";
+				updateFileStatus(key, "error", undefined, errorMessage);
+			}
+		}
 
 		const zipBlob = await zip.generateAsync({ type: "blob" });
 		setZipFile(
@@ -161,9 +172,9 @@ function App() {
 	const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const files = event.target.files;
 		if (files && files.length > 0) {
-			const fileMap = new Map<number, SelectedFile>();
+			const fileMap = new Map<number, FileItemInfo>();
 			Array.from(files).forEach((file, i) => {
-				fileMap.set(i + 1, { data: file, status: "ready" });
+				fileMap.set(i + 1, { data: file, status: "ready", progress: 0 });
 			});
 			setFilesToConvert(fileMap);
 		}
@@ -171,9 +182,19 @@ function App() {
 		setConvertStatus("idle");
 	};
 
+	const handleFileRemove = (id: number) => {
+		const fileMap = new Map(filesToConvert);
+		fileMap.delete(id);
+		setFilesToConvert(fileMap);
+	};
+
 	const handleSelectFormat = (event: React.ChangeEvent<HTMLSelectElement>) => {
 		const selectedFormat = event.target.value;
 		setSelectFormat(selectedFormat);
+
+		for (const key of filesToConvert.keys()) {
+			updateFileStatus(key, "ready", undefined, undefined, 0);
+		}
 
 		setConvertStatus("idle");
 	};
@@ -276,6 +297,7 @@ function App() {
 							)}
 						</fieldset>
 					</Form>
+
 					{(convertStatus === "converting" ||
 						convertStatus === "converted") && (
 						<ProgressBar
@@ -313,51 +335,25 @@ function App() {
 						data-bs-theme="dark"
 						style={{ paddingBottom: "100px" }}
 					>
-						{Array.from(filesToConvert.entries()).map(([id, file]) => (
-							<ListGroup.Item
-								key={id}
-								className="d-flex justify-content-between"
-							>
-								<span className="align-self-center">{file.data.name}</span>
-								<Button
-									variant={
-										file.status === "ready"
-											? "outline-secondary"
-											: file.status === "converting"
-												? "info"
-												: file.status === "converted"
-													? "outline-success"
-													: file.status === "error"
-														? "danger"
-														: "primary"
-									}
-									disabled={file.status === "ready"}
-									onClick={
-										file.status === "converted"
-											? () => handleDownloadFile(id)
-											: () => undefined
-									}
-									data-bs-toggle={
-										file.status === "error" ? "tooltip" : undefined
-									}
-									data-bs-placement="top"
-									title={file.error}
-								>
-									{file.status === "ready"
-										? "-"
-										: file.status === "converting"
-											? "Converting"
-											: file.status === "converted"
-												? "Download"
-												: "Error"}
-								</Button>
-							</ListGroup.Item>
-						))}
+						{Array.from(filesToConvert.entries()).map(([id, file]) =>
+							FileItem({
+								id,
+								file,
+								handleDownloadFile,
+								handleFileRemove,
+							}),
+						)}
 					</ListGroup>
 				</Container>
 			) : (
 				<Container className="mt-5 text-center">
-					<Lottie options={loadingOptions} height={400} width={400} />
+					<Lottie
+						options={loadingOptions}
+						height={400}
+						width={400}
+						isClickToPauseDisabled={true}
+						style={{ cursor: "default" }}
+					/>
 				</Container>
 			)}
 
