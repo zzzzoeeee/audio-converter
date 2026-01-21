@@ -15,8 +15,8 @@ import {
 import Lottie from "react-lottie";
 import logoImage from "./asset/exchange-64.png";
 import * as loadingAnimation from "./asset/loading.lottie.json";
-import { FileItem } from "./compoments/FileItem";
 import type { FileItemInfo, FileStatus } from "./compoments/FileItem";
+import { FileItem } from "./compoments/FileItem";
 import Footer from "./compoments/Footer";
 
 function App() {
@@ -142,8 +142,10 @@ function App() {
 					const file = fileToConvert.data;
 					await ffmpeg.writeFile(file.name, await fetchFile(file));
 					await ffmpeg.exec(["-i", file.name, `output_${key}.${format}`]);
-					const fileData = await ffmpeg.readFile(`output_${key}.${format}`);
-					const data = new Uint8Array(fileData as ArrayBuffer);
+					const fileData = (await ffmpeg.readFile(
+						`output_${key}.${format}`,
+					)) as Uint8Array;
+					const data = new Uint8Array(fileData);
 					const convertedBlob = new Blob([data.buffer], {
 						type: `audio/${format}`,
 					});
